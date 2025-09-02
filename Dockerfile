@@ -1,45 +1,45 @@
 # Multi-stage Dockerfile for Django 5 application
-# Supports multi-architecture builds with Python 3.12.5
-# Last updated: 2025-08-30 22:40:55 UTC by nullroute-commits
+# Supports multi-architecture builds with Python 3.12.5 on Alpine Linux
+# Last updated: 2025-01-27 by nullroute-commits
 
 ARG PYTHON_VERSION=3.12.5
 ARG BUILDPLATFORM=linux/amd64
 ARG TARGETPLATFORM=linux/amd64
 
-# Base stage with Python and system dependencies
-FROM python:${PYTHON_VERSION}-slim as base
+# Base stage with Python and Alpine system dependencies
+FROM python:${PYTHON_VERSION}-alpine as base
 
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    DEBIAN_FRONTEND=noninteractive \
     PIP_NO_CACHE_DIR=1 \
-    PIP_DISABLE_PIP_VERSION_CHECK=1
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PYTHONPATH=/app
 
 # Set work directory
 WORKDIR /app
 
-# Install system dependencies
-RUN apt-get update && apt-get install -y \
-    build-essential \
-    libpq-dev \
-    libbz2-dev \
+# Install system dependencies for Alpine
+RUN apk add --no-cache \
+    postgresql-dev \
+    jpeg-dev \
+    zlib-dev \
     libffi-dev \
-    libssl-dev \
-    libxml2-dev \
-    libxslt-dev \
-    zlib1g-dev \
-    libjpeg-dev \
-    libpng-dev \
+    cairo-dev \
+    pango-dev \
+    gdk-pixbuf-dev \
+    musl-dev \
+    gcc \
+    g++ \
+    make \
     curl \
-    wget \
     git \
     netcat-openbsd \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/cache/apk/*
 
 # Create app user
-RUN groupadd -r app && useradd -r -g app app
+RUN addgroup -g 1000 app && \
+    adduser -D -s /bin/sh -u 1000 -G app app
 
 # Development stage
 FROM base as development

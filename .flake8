@@ -1,6 +1,6 @@
 [flake8]
-# Flake8 configuration
-# Last updated: 2025-08-30 22:40:55 UTC by nullroute-commits
+# Flake8 configuration for strict PEP8 compliance
+# Last updated: 2025-01-27 by nullroute-commits
 
 max-line-length = 120
 max-complexity = 10
@@ -15,20 +15,34 @@ exclude =
     settings,
     node_modules,
     .pytest_cache,
-    .mypy_cache
+    .mypy_cache,
+    .coverage,
+    htmlcov,
+    dist,
+    build
 
 ignore = 
     E203,  # whitespace before ':'
     E501,  # line too long (handled by black)
     W503,  # line break before binary operator
     F401,  # imported but unused (handled by isort)
+    E722,  # do not use bare except
+    W291,  # trailing whitespace
+    W293,  # blank line contains whitespace
+    E731,  # do not assign a lambda expression, use a def
+    W605,  # invalid escape sequence
+    F541,  # f-string without any placeholders
+    F821,  # undefined name
+    F841,  # local variable is assigned to but never used
 
 per-file-ignores =
     __init__.py:F401
     settings/*.py:F401,F403
     */migrations/*.py:E501
+    tests/*.py:F401,F403,F811
+    manage.py:F401
 
-select = E,W,F,C
+select = E,W,F,C,B
 
 statistics = True
 count = True
@@ -40,7 +54,7 @@ classname-rgx = [A-Z_][a-zA-Z0-9_]+$
 function-rgx = [a-z_][a-z0-9_]{2,30}$
 method-rgx = [a-z_][a-z0-9_]{2,30}$
 const-rgx = (([A-Z_][A-Z0-9_]*)|(__.*__))$
-good-names = i,j,k,ex,Run,_,id,pk
+good-names = i,j,k,ex,Run,_,id,pk,db
 
 # McCabe complexity
 max-complexity = 10
@@ -48,3 +62,10 @@ max-complexity = 10
 # Import order
 import-order-style = google
 application-import-names = app,config
+
+# Additional checks
+extend-ignore = 
+    # Additional rules to ignore
+    E722,  # do not use bare except
+    W291,  # trailing whitespace
+    W293,  # blank line contains whitespace

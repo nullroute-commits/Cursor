@@ -1,7 +1,7 @@
 version: '3.8'
 
-# CI/CD Docker Compose configuration
-# Last updated: 2025-08-30 22:40:55 UTC by nullroute-commits
+# CI/CD Docker Compose configuration for Alpine-based pipeline
+# Last updated: 2025-01-27 by nullroute-commits
 
 services:
   ci-runner:
@@ -16,78 +16,212 @@ services:
       - .:/app
       - /var/run/docker.sock:/var/run/docker.sock  # For Docker-in-Docker
       - ci_cache:/app/.cache
+      - pip_cache:/root/.cache/pip
     environment:
       - CI=true
       - DJANGO_SETTINGS_MODULE=config.settings.testing
+      - PYTHONPATH=/app
+      - PYTHONDONTWRITEBYTECODE=1
+      - PYTHONUNBUFFERED=1
     working_dir: /app
     command: /app/ci/entrypoint.sh
 
+  # Database services for testing
   test-db:
-    image: postgres:17.2
+    image: postgres:17.2-alpine
     platform: ${DOCKER_PLATFORM:-linux/amd64}
     environment:
       - POSTGRES_DB=django_app_ci
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=ci-password
+      - POSTGRES_INITDB_ARGS=--auth-host=scram-sha-256
     tmpfs:
       - /var/lib/postgresql/data  # Use tmpfs for faster CI tests
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   test-memcached:
-    image: memcached:1.6.22
+    image: memcached:1.6.22-alpine
     platform: ${DOCKER_PLATFORM:-linux/amd64}
-    command: memcached -m 64
+    command: memcached -m 64 -v
+    healthcheck:
+      test: ["CMD", "memcached-tool", "localhost:11211", "stats"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   test-rabbitmq:
-    image: rabbitmq:3.12.8
+    image: rabbitmq:3.12.8-alpine
     platform: ${DOCKER_PLATFORM:-linux/amd64}
     environment:
       - RABBITMQ_DEFAULT_USER=ci
       - RABBITMQ_DEFAULT_PASS=ci
+      - RABBITMQ_DEFAULT_VHOST=ci
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
-  # Parallel test runners
+  # Parallel test runners with Alpine optimization
   unit-tests:
     extends:
       service: ci-runner
     command: /app/ci/test.sh unit
     depends_on:
-      - test-db
-      - test-memcached
-      - test-rabbitmq
+      test-db:
+        condition: service_healthy
+      test-memcached:
+        condition: service_healthy
+      test-rabbitmq:
+        condition: service_healthy
+    environment:
+      - TEST_TYPE=unit
+      - COVERAGE_MIN=80
+    volumes:
+      - .:/app
+      - ci_cache:/app/.cache
+      - pip_cache:/root/.cache/pip
 
   integration-tests:
     extends:
       service: ci-runner
     command: /app/ci/test.sh integration
     depends_on:
-      - test-db
-      - test-memcached
-      - test-rabbitmq
+      test-db:
+        condition: service_healthy
+      test-memcached:
+        condition: service_healthy
+      test-rabbitmq:
+        condition: service_healthy
+    environment:
+      - TEST_TYPE=integration
+      - COVERAGE_MIN=75
+    volumes:
+      - .:/app
+      - ci_cache:/app/.cache
+      - pip_cache:/root/.cache/pip
 
-  # Code quality checks
+  # Code quality checks with Alpine tools
   lint-check:
     extends:
       service: ci-runner
     command: /app/ci/lint.sh
+    environment:
+      - LINT_STRICT=true
+      - MAX_LINE_LENGTH=120
+      - MAX_COMPLEXITY=10
     volumes:
       - .:/app
+      - ci_cache:/app/.cache
 
-  # Security scans
+  # Security scans with Alpine-based tools
   security-scan:
-    image: pyupio/safety:latest
-    platform: ${DOCKER_PLATFORM:-linux/amd64}
+    extends:
+      service: ci-runner
+    command: /app/ci/security_scan.sh
+    environment:
+      - SECURITY_LEVEL=high
+      - FAIL_ON_VULNERABILITIES=true
     volumes:
       - .:/app
-    working_dir: /app
-    command: safety check -r requirements/base.txt
+      - ci_cache:/app/.cache
 
-  # Build verification
+  # Code coverage analysis
+  coverage-analysis:
+    extends:
+      service: ci-runner
+    command: /app/ci/coverage.sh
+    environment:
+      - COVERAGE_MIN=80
+      - COVERAGE_REPORT_FORMAT=html,xml
+    volumes:
+      - .:/app
+      - ci_cache:/app/.cache
+      - coverage_reports:/app/coverage_reports
+
+  # Performance testing
+  performance-tests:
+    extends:
+      service: ci-runner
+    command: /app/ci/performance.sh
+    environment:
+      - PERFORMANCE_THRESHOLD=200ms
+      - LOAD_TEST_USERS=100
+    volumes:
+      - .:/app
+      - ci_cache:/app/.cache
+      - performance_reports:/app/performance_reports
+
+  # Build verification with Alpine
   build-test:
     extends:
       service: ci-runner
     command: /app/ci/build.sh
+    environment:
+      - BUILD_TARGET=alpine
+      - BUILD_OPTIMIZATION=true
     volumes:
       - .:/app
       - /var/run/docker.sock:/var/run/docker.sock
+      - ci_cache:/app/.cache
+      - build_cache:/app/build_cache
+
+  # Multi-architecture build verification
+  multiarch-build:
+    extends:
+      service: ci-runner
+    command: /app/ci/multiarch_build.sh
+    environment:
+      - BUILD_PLATFORMS=linux/amd64,linux/arm64
+      - PUSH_TO_REGISTRY=false
+    volumes:
+      - .:/app
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ci_cache:/app/.cache
+      - build_cache:/app/build_cache
+
+  # Quality gates and reporting
+  quality-gate:
+    extends:
+      service: ci-runner
+    command: /app/ci/quality_gate.sh
+    environment:
+      - QUALITY_THRESHOLDS=strict
+      - GENERATE_REPORTS=true
+    volumes:
+      - .:/app
+      - ci_cache:/app/.cache
+      - quality_reports:/app/quality_reports
+
+  # Documentation generation
+  docs-generation:
+    extends:
+      service: ci-runner
+    command: /app/ci/generate_docs.sh
+    environment:
+      - DOCS_FORMAT=markdown,html
+      - INCLUDE_API_DOCS=true
+    volumes:
+      - .:/app
+      - ci_cache:/app/.cache
+      - docs_output:/app/docs_output
 
 volumes:
   ci_cache:
+    driver: local
+  pip_cache:
+    driver: local
+  coverage_reports:
+    driver: local
+  performance_reports:
+    driver: local
+  build_cache:
+    driver: local
+  quality_reports:
+    driver: local
+  docs_output:
+    driver: local
