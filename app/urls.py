@@ -4,7 +4,7 @@ Basic URL patterns for the application.
 
 Last updated: 2025-08-30 22:40:55 UTC by nullroute-commits
 """
-from django.urls import path
+from django.urls import path, include
 from django.http import JsonResponse
 
 def home_view(request):
@@ -17,4 +17,6 @@ def home_view(request):
 
 urlpatterns = [
     path('', home_view, name='home'),
+    path('financial/', include('app.financial.urls')),
+    path('admin/', include('django.contrib.admin.urls')),
 ]
