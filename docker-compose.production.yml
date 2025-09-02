@@ -138,4 +138,9 @@ services:
     restart: unless-stopped
 
 volumes:
+  postgres_data:
+  rabbitmq_data:
+  static_volume:
+  media_volume:
+  logs_volume:
   prometheus_data:

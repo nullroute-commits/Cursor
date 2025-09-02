@@ -68,3 +68,10 @@ services:
       - "1025:1025"  # SMTP
       - "8025:8025"  # Web UI
     restart: unless-stopped
+
+volumes:
+  postgres_data:
+  rabbitmq_data:
+  static_volume:
+  media_volume:
+  logs_volume:

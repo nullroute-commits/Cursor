@@ -21,7 +21,7 @@ WORKDIR /app
 
 # Install system dependencies for Alpine
 RUN apk add --no-cache \
-    postgresql-dev \
+    postgresql15-dev \
     jpeg-dev \
     zlib-dev \
     libffi-dev \
