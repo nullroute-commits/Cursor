@@ -1,8 +1,9 @@
 """
 Comprehensive audit logging system.
+
 Tracks all system activities for security and compliance.
 
-Last updated: 2025-08-30 22:40:55 UTC by nullroute-commits
+Last updated: 2025-01-27 by nullroute-commits
 """
 import json
 import logging
@@ -29,30 +30,32 @@ class AuditLogger:
     - Configurable audit levels
     """
     
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize audit logger."""
         self.enabled = getattr(settings, 'AUDIT_ENABLED', True)
         self.log_models = getattr(settings, 'AUDIT_LOG_MODELS', True)
         self.log_requests = getattr(settings, 'AUDIT_LOG_REQUESTS', True)
         self.log_authentication = getattr(settings, 'AUDIT_LOG_AUTHENTICATION', True)
     
-    def log_activity(self, 
-                    action: str,
-                    user_id: Optional[str] = None,
-                    session_id: Optional[str] = None,
-                    ip_address: Optional[str] = None,
-                    user_agent: Optional[str] = None,
-                    resource_type: Optional[str] = None,
-                    resource_id: Optional[str] = None,
-                    resource_repr: Optional[str] = None,
-                    old_values: Optional[Dict] = None,
-                    new_values: Optional[Dict] = None,
-                    request_method: Optional[str] = None,
-                    request_path: Optional[str] = None,
-                    request_data: Optional[Dict] = None,
-                    response_status: Optional[int] = None,
-                    metadata: Optional[Dict] = None,
-                    message: Optional[str] = None) -> Optional[str]:
+    def log_activity(
+        self,
+        action: str,
+        user_id: Optional[str] = None,
+        session_id: Optional[str] = None,
+        ip_address: Optional[str] = None,
+        user_agent: Optional[str] = None,
+        resource_type: Optional[str] = None,
+        resource_id: Optional[str] = None,
+        resource_repr: Optional[str] = None,
+        old_values: Optional[Dict] = None,
+        new_values: Optional[Dict] = None,
+        request_method: Optional[str] = None,
+        request_path: Optional[str] = None,
+        request_data: Optional[Dict] = None,
+        response_status: Optional[int] = None,
+        metadata: Optional[Dict] = None,
+        message: Optional[str] = None
+    ) -> Optional[str]:
         """
         Log an activity to the audit trail.
         
@@ -82,9 +85,15 @@ class AuditLogger:
         
         try:
             # Sanitize sensitive data
-            sanitized_request_data = self._sanitize_data(request_data) if request_data else None
-            sanitized_old_values = self._sanitize_data(old_values) if old_values else None
-            sanitized_new_values = self._sanitize_data(new_values) if new_values else None
+            sanitized_request_data = (
+                self._sanitize_data(request_data) if request_data else None
+            )
+            sanitized_old_values = (
+                self._sanitize_data(old_values) if old_values else None
+            )
+            sanitized_new_values = (
+                self._sanitize_data(new_values) if new_values else None
+            )
             
             with get_db_session() as session:
                 audit_log = AuditLog(
@@ -103,17 +112,22 @@ class AuditLogger:
                     request_data=sanitized_request_data,
                     response_status=response_status,
                     metadata=metadata,
-                    message=message
+                    message=message,
+                    timestamp=datetime.now(timezone.utc)
                 )
                 
                 session.add(audit_log)
                 session.commit()
                 
-                logger.debug(f"Logged audit activity: {action} by user {user_id}")
+                logger.info(
+                    f"Audit log created: {action} by user {user_id} "
+                    f"on resource {resource_type}:{resource_id}"
+                )
+                
                 return str(audit_log.id)
                 
         except Exception as e:
-            logger.error(f"Failed to log audit activity: {str(e)}")
+            logger.error(f"Failed to create audit log: {e}")
             return None
     
     def log_model_change(self,

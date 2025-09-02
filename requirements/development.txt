@@ -7,3 +7,8 @@ sqlalchemy-stubs==0.4.0
 django-debug-toolbar==4.2.0
 pytest==7.4.3
 pytest-django==4.7.0
+pre-commit==3.6.0
+bandit==1.7.5
+safety==2.3.5
+isort==5.13.2
+django-extensions==3.2.3

@@ -1,8 +1,9 @@
 """
 Role-Based Access Control (RBAC) system.
+
 Provides comprehensive access control functionality for the application.
 
-Last updated: 2025-08-30 22:40:55 UTC by nullroute-commits
+Last updated: 2025-01-27 by nullroute-commits
 """
 import logging
 from typing import List, Optional, Dict, Any, Set
@@ -28,7 +29,7 @@ class RBACManager:
     - Audit logging integration
     """
     
-    def __init__(self, cache_timeout: int = 300):
+    def __init__(self, cache_timeout: int = 300) -> None:
         """
         Initialize RBAC Manager.
         
@@ -37,7 +38,11 @@ class RBACManager:
         """
         self.cache_timeout = cache_timeout
     
-    def get_user_permissions(self, user_id: str, use_cache: bool = True) -> Set[str]:
+    def get_user_permissions(
+        self, 
+        user_id: str, 
+        use_cache: bool = True
+    ) -> Set[str]:
         """
         Get all permissions for a user.
         
@@ -64,7 +69,11 @@ class RBACManager:
             
             # Superuser has all permissions
             if user.is_superuser:
-                all_permissions = session.query(Permission).filter(Permission.is_active == True).all()
+                all_permissions = (
+                    session.query(Permission)
+                    .filter(Permission.is_active.is_(True))
+                    .all()
+                )
                 permissions = {perm.name for perm in all_permissions}
             else:
                 # Get permissions from active roles
@@ -80,7 +89,11 @@ class RBACManager:
         
         return permissions
     
-    def get_user_roles(self, user_id: str, use_cache: bool = True) -> Set[str]:
+    def get_user_roles(
+        self, 
+        user_id: str, 
+        use_cache: bool = True
+    ) -> Set[str]:
         """
         Get all roles for a user.
         
@@ -102,8 +115,22 @@ class RBACManager:
         
         with get_db_session() as session:
             user = session.query(User).filter(User.id == user_id).first()
-            if user:
-                roles = {role.name for role in user.roles if role.is_active}
+            if not user:
+                return roles
+            
+            # Superuser has all roles
+            if user.is_superuser:
+                all_roles = (
+                    session.query(Role)
+                    .filter(Role.is_active.is_(True))
+                    .all()
+                )
+                roles = {role.name for role in all_roles}
+            else:
+                # Get active roles
+                for role in user.roles:
+                    if role.is_active:
+                        roles.add(role.name)
         
         # Cache the result
         if use_cache:
