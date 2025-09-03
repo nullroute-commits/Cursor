@@ -255,13 +255,13 @@ restore:
 check-deps:
 	@echo "🔍 Checking system dependencies..."
 	@command -v docker >/dev/null 2>&1 || { echo "❌ Docker is required but not installed"; exit 1; }
-	@command -v docker-compose >/dev/null 2>&1 || { echo "❌ Docker Compose is required but not installed"; exit 1; }
+	@docker compose version >/dev/null 2>&1 || { echo "❌ Docker Compose is required but not installed"; exit 1; }
 	@echo "✅ All dependencies are available"
 
 version:
 	@echo "📋 Financial Analytics Platform Information:"
 	@echo "   - Docker: $(shell docker --version)"
-	@echo "   - Docker Compose: $(shell docker-compose --version)"
+	@echo "   - Docker Compose: $(shell docker compose version)"
 	@echo "   - Python: $(shell python3 --version)"
 	@echo "   - Platform: $(shell uname -s) $(shell uname -m)"
 
