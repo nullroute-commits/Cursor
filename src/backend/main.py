@@ -15,7 +15,7 @@ from fastapi.exceptions import RequestValidationError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from src.common.config import get_settings
-from src.backend.api import auth_router, users_router, organizations_router
+from src.backend.api import auth_router, users_router, organizations_router, ingestion_router, transactions_router
 from src.backend.middleware.auth import AuthMiddleware
 from src.backend.middleware.rbac import RBACMiddleware
 from src.backend.middleware.audit import AuditMiddleware
@@ -65,9 +65,11 @@ def create_app() -> FastAPI:
     app.add_middleware(MetricsMiddleware)
     
     # Include routers
-                app.include_router(auth_router, prefix="/api/auth", tags=["Authentication"])
-            app.include_router(users_router, prefix="/api/users", tags=["Users"])
-            app.include_router(organizations_router, prefix="/api/organizations", tags=["Organizations"])
+    app.include_router(auth_router, prefix="/api/auth", tags=["Authentication"])
+    app.include_router(users_router, prefix="/api/users", tags=["Users"])
+    app.include_router(organizations_router, prefix="/api/organizations", tags=["Organizations"])
+    app.include_router(ingestion_router, prefix="/api/ingestion", tags=["Data Ingestion"])
+    app.include_router(transactions_router, prefix="/api/transactions", tags=["Transactions"])
     
     # Global exception handlers
     @app.exception_handler(StarletteHTTPException)
