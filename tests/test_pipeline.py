@@ -75,6 +75,9 @@ def test_list_operations():
 def test_pipeline_module():
     """Test the pipeline module functionality."""
     pipeline = Pipeline()
+    assert hasattr(pipeline, "stages"), "Pipeline should have a 'stages' attribute"
+    from collections.abc import Sized
+    assert isinstance(pipeline.stages, Sized), "'stages' should be a sized collection"
     assert len(pipeline.stages) == 4, "Pipeline should have 4 stages"
     
     # Test stage names
