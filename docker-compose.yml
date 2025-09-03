@@ -204,9 +204,6 @@ services:
     command:
       - '--config.file=/etc/alertmanager/alertmanager.yml'
       - '--storage.path=/alertmanager'
-      - '--web.console.libraries=/etc/alertmanager/console_libraries'
-      - '--web.console.templates=/etc/alertmanager/consoles'
-      - '--web.enable-lifecycle'
     networks:
       - financial-network
     restart: unless-stopped

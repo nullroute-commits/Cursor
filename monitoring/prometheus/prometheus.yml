@@ -5,6 +5,7 @@ global:
 
 rule_files:
   - "alert_rules.yml"
+  - "recording_rules.yml"
 
 alerting:
   alertmanagers:
@@ -78,6 +79,3 @@ scrape_configs:
       - target_label: __address__
         replacement: blackbox:9115
 
-# Recording rules for common metrics
-rule_files:
-  - "recording_rules.yml"
