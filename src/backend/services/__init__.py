@@ -11,6 +11,8 @@ from .transaction_service import TransactionService, transaction_service
 from .plaid_service import PlaidService, plaid_service
 from .analytics_service import AnalyticsService, analytics_service
 from .ml_service import MLService, ml_service
+from .reporting_service import ReportingService, reporting_service
+from .dashboard_service import DashboardService, dashboard_service
 
 __all__ = [
     "AuthService", "auth_service", "get_current_user", "get_current_active_user",
@@ -20,5 +22,7 @@ __all__ = [
     "TransactionService", "transaction_service",
     "PlaidService", "plaid_service",
     "AnalyticsService", "analytics_service",
-    "MLService", "ml_service"
+    "MLService", "ml_service",
+    "ReportingService", "reporting_service",
+    "DashboardService", "dashboard_service"
 ]

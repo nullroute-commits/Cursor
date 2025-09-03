@@ -11,6 +11,8 @@ from .transactions import router as transactions_router
 from .plaid import router as plaid_router
 from .analytics import router as analytics_router
 from .ml import router as ml_router
+from .reporting import router as reporting_router
+from .dashboard import router as dashboard_router
 
 __all__ = [
     "auth_router",
@@ -20,5 +22,7 @@ __all__ = [
     "transactions_router",
     "plaid_router",
     "analytics_router",
-    "ml_router"
+    "ml_router",
+    "reporting_router",
+    "dashboard_router"
 ]
