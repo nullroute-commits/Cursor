@@ -4,6 +4,7 @@ This file will be used to test the pytest integration and coverage reporting.
 """
 
 import pytest
+from pipeline import Pipeline, LintStage, TestStage, BuildStage, ScanStage
 
 
 def test_pipeline_ready():
@@ -32,6 +33,52 @@ def test_list_operations():
     assert "test" in stages, "Test stage should be present"
     assert "build" in stages, "Build stage should be present"
     assert "scan" in stages, "Scan stage should be present"
+
+
+def test_pipeline_module():
+    """Test the pipeline module functionality."""
+    pipeline = Pipeline()
+    assert len(pipeline.stages) == 4, "Pipeline should have 4 stages"
+    
+    # Test stage names
+    stage_names = [stage.name for stage in pipeline.stages]
+    assert "lint" in stage_names, "Lint stage should be in pipeline"
+    assert "test" in stage_names, "Test stage should be in pipeline"
+    assert "build" in stage_names, "Build stage should be in pipeline"
+    assert "scan" in stage_names, "Scan stage should be in pipeline"
+
+
+def test_individual_stages():
+    """Test individual pipeline stages."""
+    lint_stage = LintStage()
+    assert lint_stage.name == "lint", "Lint stage should have correct name"
+    assert lint_stage.status == "pending", "Initial status should be pending"
+    
+    test_stage = TestStage()
+    assert test_stage.name == "test", "Test stage should have correct name"
+    
+    build_stage = BuildStage()
+    assert build_stage.name == "build", "Build stage should have correct name"
+    
+    scan_stage = ScanStage()
+    assert scan_stage.name == "scan", "Scan stage should have correct name"
+
+
+def test_stage_execution():
+    """Test stage execution."""
+    stage = LintStage()
+    result = stage.execute()
+    assert result is True, "Stage execution should succeed"
+    assert stage.status == "success", "Stage status should be success"
+
+
+def test_pipeline_status():
+    """Test pipeline status reporting."""
+    pipeline = Pipeline()
+    status = pipeline.get_status()
+    assert isinstance(status, dict), "Status should be a dictionary"
+    assert len(status) == 4, "Status should have 4 entries"
+    assert all(status[name] == "pending" for name in status), "All stages should be pending initially"
 
 
 class TestPipelineStages:
