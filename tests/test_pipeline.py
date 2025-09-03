@@ -107,11 +107,12 @@ def test_individual_stages():
 def test_stage_execution():
     """Test stage execution."""
     stage = LintStage()
+    # Check if execute method exists and is callable
+    assert hasattr(stage, "execute") and callable(getattr(stage, "execute")), "LintStage should have an execute() method"
     result = stage.execute()
     assert result is True, "Stage execution should succeed"
+    assert hasattr(stage, "status"), "LintStage should have a status attribute"
     assert stage.status == "success", "Stage status should be success"
-
-
 def test_pipeline_status():
     """Test pipeline status reporting."""
     pipeline = Pipeline()
