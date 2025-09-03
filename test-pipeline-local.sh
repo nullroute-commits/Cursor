@@ -14,7 +14,7 @@ mkdir -p ci/reports
 echo "📋 Stage 1: Lint (Simulated)"
 echo "- Checking Python files with ruff..."
 if command -v ruff &> /dev/null; then
-    ruff check . --output-format=text || echo "⚠️  Ruff not available, skipping"
+    ruff check . --output-format=full || echo "⚠️  Ruff found issues (expected)"
 else
     echo "✓ Lint simulation complete (ruff not installed)"
 fi
