@@ -36,19 +36,19 @@ def test_list_operations():
 
 class TestPipelineStages:
     """Test class for pipeline stages."""
-    
+
     def test_lint_stage(self):
         """Test lint stage configuration."""
         assert True, "Lint stage should be configured"
-    
+
     def test_test_stage(self):
         """Test test stage configuration."""
         assert True, "Test stage should be configured"
-    
+
     def test_build_stage(self):
         """Test build stage configuration."""
         assert True, "Build stage should be configured"
-    
+
     def test_scan_stage(self):
         """Test scan stage configuration."""
         assert True, "Scan stage should be configured"
