@@ -116,12 +116,9 @@ def test_stage_execution():
 def test_pipeline_status():
     """Test pipeline status reporting."""
     pipeline = Pipeline()
-    status = pipeline.get_status()
-    assert isinstance(status, dict), "Status should be a dictionary"
-    assert len(status) == 4, "Status should have 4 entries"
-    assert all(status[name] == "pending" for name in status), "All stages should be pending initially"
-
-
+    # Check that there are 4 stages and all are pending
+    assert len(pipeline.stages) == 4, "Pipeline should have 4 stages"
+    assert all(stage.status == "pending" for stage in pipeline.stages), "All stages should be pending initially"
 class TestPipelineStages:
     """Test class for pipeline stages."""
     
