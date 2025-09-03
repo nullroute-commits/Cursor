@@ -1,0 +1,36 @@
+# Lint Stage - Alpine-based with Hadolint, Ruff, and ShellCheck
+FROM alpine:3.19
+
+# Install required packages
+RUN apk add --no-cache \
+    hadolint \
+    python3 \
+    py3-pip \
+    shellcheck \
+    bash \
+    git \
+    && rm -rf /var/cache/apk/*
+
+# Install Ruff for Python linting
+RUN pip3 install --no-cache-dir ruff
+
+# Create non-root user
+RUN addgroup -g 1000 ci && \
+    adduser -D -s /bin/bash -u 1000 -G ci ci
+
+# Create working directory
+WORKDIR /workspace
+
+# Copy entrypoint script
+COPY entrypoint.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/entrypoint.sh
+
+# Switch to non-root user
+USER ci
+
+# Set environment variables
+ENV CI_STAGE=lint
+ENV PYTHONPATH=/workspace
+
+# Default command
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]

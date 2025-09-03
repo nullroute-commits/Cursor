@@ -1,0 +1,38 @@
+# Test Stage - Alpine-based with Python, pytest, and coverage
+FROM python:3.11-alpine
+
+# Install required packages
+RUN apk add --no-cache \
+    bash \
+    git \
+    && rm -rf /var/cache/apk/*
+
+# Install Python packages
+RUN pip install --no-cache-dir \
+    pytest \
+    pytest-cov \
+    pytest-html \
+    coverage \
+    junitparser
+
+# Create non-root user
+RUN addgroup -g 1000 ci && \
+    adduser -D -s /bin/bash -u 1000 -G ci ci
+
+# Create working directory
+WORKDIR /workspace
+
+# Copy entrypoint script
+COPY entrypoint.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/entrypoint.sh
+
+# Switch to non-root user
+USER ci
+
+# Set environment variables
+ENV CI_STAGE=test
+ENV PYTHONPATH=/workspace
+ENV PYTEST_ADDOPTS="--junitxml=reports/junit.xml --cov=. --cov-report=html:reports/coverage --cov-report=term"
+
+# Default command
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]

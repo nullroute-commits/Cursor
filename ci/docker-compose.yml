@@ -1,0 +1,114 @@
+version: '3.8'
+
+services:
+  # Lint Stage Service
+  lint:
+    build:
+      context: .
+      dockerfile: Dockerfile.lint
+    volumes:
+      - ../:/workspace:ro
+      - ./reports:/workspace/reports
+    environment:
+      - CI_STAGE=lint
+    profiles:
+      - lint
+      - all
+    healthcheck:
+      test: ["CMD", "test", "-f", "/usr/local/bin/entrypoint.sh"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Test Stage Service
+  test:
+    build:
+      context: .
+      dockerfile: Dockerfile.test
+    volumes:
+      - ../:/workspace:ro
+      - ./reports:/workspace/reports
+    environment:
+      - CI_STAGE=test
+    profiles:
+      - test
+      - all
+    healthcheck:
+      test: ["CMD", "test", "-f", "/usr/local/bin/entrypoint.sh"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Build Stage Service
+  build:
+    build:
+      context: .
+      dockerfile: Dockerfile.build
+    volumes:
+      - ../:/workspace:ro
+      - ./reports:/workspace/reports
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - CI_STAGE=build
+      - REGISTRY=${REGISTRY:-ghcr.io/example}
+      - IMAGE=${IMAGE:-ci-pipeline}
+      - TAG=${TAG:-latest}
+    profiles:
+      - build
+      - all
+    healthcheck:
+      test: ["CMD", "test", "-f", "/usr/local/bin/entrypoint.sh"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Scan Stage Service
+  scan:
+    build:
+      context: .
+      dockerfile: Dockerfile.scan
+    volumes:
+      - ../:/workspace:ro
+      - ./reports:/workspace/reports
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - CI_STAGE=scan
+      - REGISTRY=${REGISTRY:-ghcr.io/example}
+      - IMAGE=${IMAGE:-ci-pipeline}
+      - TAG=${TAG:-latest}
+    profiles:
+      - scan
+      - all
+    healthcheck:
+      test: ["CMD", "test", "-f", "/usr/local/bin/entrypoint.sh"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Reports Service (for viewing outputs)
+  reports:
+    image: nginx:alpine
+    volumes:
+      - ./reports:/usr/share/nginx/html:ro
+    ports:
+      - "8080:80"
+    profiles:
+      - reports
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:80"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+# Networks for service isolation
+networks:
+  default:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+
+# Volumes for persistent data
+volumes:
+  reports:
+    driver: local

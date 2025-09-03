@@ -1,0 +1,7 @@
+# CI/CD Pipeline Dependencies
+pytest>=7.0.0
+pytest-cov>=4.0.0
+pytest-html>=3.0.0
+coverage>=7.0.0
+junitparser>=3.0.0
+ruff>=0.1.0

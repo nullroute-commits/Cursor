@@ -1,0 +1,38 @@
+# Build Stage - Alpine-based with Docker CLI, BuildKit, and Buildx
+FROM alpine:3.19
+
+# Install required packages
+RUN apk add --no-cache \
+    docker-cli \
+    docker-cli-buildx \
+    bash \
+    git \
+    curl \
+    && rm -rf /var/cache/apk/*
+
+# Install Docker Buildx plugin
+RUN mkdir -p ~/.docker/cli-plugins && \
+    curl -SL https://github.com/docker/buildx/releases/download/v0.12.1/buildx-v0.12.1.linux-amd64 -o ~/.docker/cli-plugins/docker-buildx && \
+    chmod +x ~/.docker/cli-plugins/docker-buildx
+
+# Create non-root user
+RUN addgroup -g 1000 ci && \
+    adduser -D -s /bin/bash -u 1000 -G ci ci
+
+# Create working directory
+WORKDIR /workspace
+
+# Copy entrypoint script
+COPY entrypoint.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/entrypoint.sh
+
+# Switch to non-root user
+USER ci
+
+# Set environment variables
+ENV CI_STAGE=build
+ENV DOCKER_BUILDKIT=1
+ENV DOCKER_CLI_EXPERIMENTAL=enabled
+
+# Default command
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
