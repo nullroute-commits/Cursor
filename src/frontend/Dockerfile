@@ -10,6 +10,7 @@ ENV PYTHONUNBUFFERED=1 \
 # Install system dependencies
 RUN apk add --no-cache \
     gcc \
+    g++ \
     musl-dev \
     libffi-dev \
     curl \
