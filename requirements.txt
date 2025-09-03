@@ -1,7 +1,42 @@
-# CI/CD Pipeline Dependencies
-pytest>=7.0.0
-pytest-cov>=4.0.0
-pytest-html>=3.0.0
-coverage>=7.0.0
-junitparser>=3.0.0
-ruff>=0.1.0
+# Financial Analytics Platform - Main Requirements
+# This file installs all dependencies for development
+
+# =============================================================================
+# INSTALL ALL REQUIREMENTS
+# =============================================================================
+# Base requirements (shared across all services)
+-r requirements/base.txt
+
+# Development requirements (testing, linting, debugging)
+-r requirements/development.txt
+
+# Frontend requirements (UI components)
+-r requirements/frontend.txt
+
+# Worker requirements (background task processing)
+-r requirements/worker.txt
+
+# Common requirements (shared utilities)
+-r requirements/common.txt
+
+# =============================================================================
+# OPTIONAL REQUIREMENTS (Uncomment as needed)
+# =============================================================================
+# FOSS Ingestion (bank CSV processing, Plaid integration)
+# -r requirements/optional_foss_ingestion.txt
+
+# Post-Quantum Cryptography
+# -r requirements/optional_pq_crypto.txt
+
+# =============================================================================
+# PRODUCTION OPTIMIZATIONS (Uncomment for production)
+# =============================================================================
+# -r requirements/production.txt
+
+# =============================================================================
+# NOTES
+# =============================================================================
+# For development: pip install -r requirements.txt
+# For production: pip install -r requirements/production.txt
+# For specific services: pip install -r requirements/[service].txt
+# For optional features: uncomment the relevant optional requirements

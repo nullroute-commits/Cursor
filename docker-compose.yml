@@ -1,0 +1,280 @@
+version: '3.8'
+
+services:
+  # Backend API Service
+  api:
+    build:
+      context: .
+      dockerfile: src/backend/Dockerfile
+      target: production
+    image: backend
+    container_name: financial-api
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+      - SMTP_HOST=${SMTP_HOST}
+      - SMTP_PORT=${SMTP_PORT}
+      - SMTP_USER=${SMTP_USER}
+      - SMTP_PASS=${SMTP_PASS}
+      - JWT_SECRET=${JWT_SECRET}
+      - POST_QUANTUM=${POST_QUANTUM}
+      - REDIS_URL=${REDIS_URL}
+      - ENVIRONMENT=${ENVIRONMENT}
+    depends_on:
+      - db
+      - smtp
+      - redis
+    volumes:
+      - ./src/backend:/app/src/backend:ro
+      - ./src/common:/app/src/common:ro
+      - ./logs:/app/logs
+    networks:
+      - financial-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Frontend UI Service
+  ui:
+    build:
+      context: .
+      dockerfile: src/frontend/Dockerfile
+      target: production
+    image: frontend
+    container_name: financial-ui
+    ports:
+      - "8080:8080"
+    environment:
+      - API_URL=${API_URL}
+      - ENVIRONMENT=${ENVIRONMENT}
+    depends_on:
+      - api
+    volumes:
+      - ./src/frontend:/app/src/frontend:ro
+      - ./src/common:/app/src/common:ro
+    networks:
+      - financial-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # PostgreSQL Database
+  db:
+    image: postgres:17.6-alpine
+    container_name: financial-db
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_INITDB_ARGS=--encoding=UTF-8 --lc-collate=C --lc-ctype=C
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
+    ports:
+      - "5432:5432"
+    networks:
+      - financial-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # SMTP Service (MailDev)
+  smtp:
+    image: maildev/maildev:latest
+    container_name: financial-smtp
+    ports:
+      - "1080:1080"  # Web interface
+      - "1025:1025"  # SMTP
+    environment:
+      - MAILDEV_DOMAIN=localhost
+      - MAILDEV_SMTP=1025
+      - MAILDEV_WEB=1080
+    networks:
+      - financial-network
+    restart: unless-stopped
+
+  # Redis for Task Queue
+  redis:
+    image: redis:7-alpine
+    container_name: financial-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - financial-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Celery Worker for Background Tasks
+  worker:
+    build:
+      context: .
+      dockerfile: src/backend/Dockerfile
+      target: worker
+    image: backend-worker
+    container_name: financial-worker
+    command: celery -A src.backend.worker.celery worker --loglevel=info
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=${REDIS_URL}
+      - ENVIRONMENT=${ENVIRONMENT}
+    depends_on:
+      - db
+      - redis
+    volumes:
+      - ./src/backend:/app/src/backend:ro
+      - ./src/common:/app/src/common:ro
+      - ./logs:/app/logs
+    networks:
+      - financial-network
+    restart: unless-stopped
+
+  # Celery Beat for Scheduled Tasks
+  beat:
+    build:
+      context: .
+      dockerfile: src/backend/Dockerfile
+      target: worker
+    image: backend-worker
+    container_name: financial-beat
+    command: celery -A src.backend.worker.celery beat --loglevel=info
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=${REDIS_URL}
+      - ENVIRONMENT=${ENVIRONMENT}
+    depends_on:
+      - db
+      - redis
+    volumes:
+      - ./src/backend:/app/src/backend:ro
+      - ./src/common:/app/src/common:ro
+      - ./logs:/app/logs
+    networks:
+      - financial-network
+    restart: unless-stopped
+
+  # Prometheus for Metrics Collection
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: financial-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+    networks:
+      - financial-network
+    restart: unless-stopped
+
+  # Alertmanager for Alert Routing
+  alertmanager:
+    image: prom/alertmanager:latest
+    container_name: financial-alertmanager
+    ports:
+      - "9093:9093"
+    volumes:
+      - ./monitoring/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - alertmanager_data:/alertmanager
+    command:
+      - '--config.file=/etc/alertmanager/alertmanager.yml'
+      - '--storage.path=/alertmanager'
+      - '--web.console.libraries=/etc/alertmanager/console_libraries'
+      - '--web.console.templates=/etc/alertmanager/consoles'
+      - '--web.enable-lifecycle'
+    networks:
+      - financial-network
+    restart: unless-stopped
+
+  # Node Exporter for System Metrics
+  node-exporter:
+    image: prom/node-exporter:latest
+    container_name: financial-node-exporter
+    ports:
+      - "9100:9100"
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.rootfs=/rootfs'
+      - '--path.sysfs=/host/sys'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+    networks:
+      - financial-network
+    restart: unless-stopped
+
+  # PostgreSQL Exporter for Database Metrics
+  postgres-exporter:
+    image: prometheuscommunity/postgres-exporter:latest
+    container_name: financial-postgres-exporter
+    ports:
+      - "9187:9187"
+    environment:
+      - DATA_SOURCE_NAME=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}?sslmode=disable
+    depends_on:
+      - db
+    networks:
+      - financial-network
+    restart: unless-stopped
+
+  # Grafana for Visualization (Optional)
+  grafana:
+    image: grafana/grafana:latest
+    container_name: financial-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD}
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    networks:
+      - financial-network
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+    driver: local
+  redis_data:
+    driver: local
+  prometheus_data:
+    driver: local
+  alertmanager_data:
+    driver: local
+  grafana_data:
+    driver: local
+
+networks:
+  financial-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
