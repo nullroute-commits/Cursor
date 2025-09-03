@@ -15,7 +15,7 @@ from fastapi.exceptions import RequestValidationError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from src.common.config import get_settings
-from src.backend.api import auth, users, organizations, accounts, transactions, analytics, reports, alerts
+from src.backend.api import auth_router, users_router, organizations_router
 from src.backend.middleware.auth import AuthMiddleware
 from src.backend.middleware.rbac import RBACMiddleware
 from src.backend.middleware.audit import AuditMiddleware
@@ -65,14 +65,9 @@ def create_app() -> FastAPI:
     app.add_middleware(MetricsMiddleware)
     
     # Include routers
-    app.include_router(auth.router, prefix="/api/auth", tags=["Authentication"])
-    app.include_router(users.router, prefix="/api/users", tags=["Users"])
-    app.include_router(organizations.router, prefix="/api/organizations", tags=["Organizations"])
-    app.include_router(accounts.router, prefix="/api/accounts", tags=["Accounts"])
-    app.include_router(transactions.router, prefix="/api/transactions", tags=["Transactions"])
-    app.include_router(analytics.router, prefix="/api/analytics", tags=["Analytics"])
-    app.include_router(reports.router, prefix="/api/reports", tags=["Reports"])
-    app.include_router(alerts.router, prefix="/api/alerts", tags=["Alerts"])
+                app.include_router(auth_router, prefix="/api/auth", tags=["Authentication"])
+            app.include_router(users_router, prefix="/api/users", tags=["Users"])
+            app.include_router(organizations_router, prefix="/api/organizations", tags=["Organizations"])
     
     # Global exception handlers
     @app.exception_handler(StarletteHTTPException)
