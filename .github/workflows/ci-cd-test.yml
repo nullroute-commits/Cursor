@@ -1,0 +1,258 @@
+name: CI/CD Pipeline Test Deployment
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      stage:
+        description: 'Pipeline stage to run'
+        required: false
+        default: 'all'
+        type: choice
+        options:
+        - all
+        - lint
+        - test
+        - build
+        - scan
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  # Lint Stage
+  lint:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.inputs.stage == 'lint' || github.event.inputs.stage == 'all' || github.event.inputs.stage == '' }}
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+      
+    - name: Create reports directory
+      run: mkdir -p ci/reports
+      
+    - name: Run lint stage
+      run: make lint
+      
+    - name: Upload lint reports
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: lint-reports
+        path: ci/reports/
+
+  # Test Stage
+  test:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.inputs.stage == 'test' || github.event.inputs.stage == 'all' || github.event.inputs.stage == '' }}
+    needs: lint
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+      
+    - name: Create reports directory
+      run: mkdir -p ci/reports
+      
+    - name: Run test stage
+      run: make test
+      
+    - name: Upload test reports
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: test-reports
+        path: ci/reports/
+        
+    - name: Publish test results
+      uses: dorny/test-reporter@v1
+      if: success() || failure()
+      with:
+        name: Pytest Results
+        path: 'ci/reports/junit.xml'
+        reporter: java-junit
+
+  # Build Stage
+  build:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.inputs.stage == 'build' || github.event.inputs.stage == 'all' || github.event.inputs.stage == '' }}
+    needs: test
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      image: ${{ steps.image.outputs.image }}
+      digest: ${{ steps.build.outputs.digest }}
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+      
+    - name: Log in to Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ env.REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+        
+    - name: Extract metadata
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+        tags: |
+          type=ref,event=branch
+          type=ref,event=pr
+          type=sha,prefix={{branch}}-
+          type=raw,value=latest,enable={{is_default_branch}}
+          
+    - name: Set image output
+      id: image
+      run: echo "image=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}" >> $GITHUB_OUTPUT
+      
+    - name: Build and push Docker image
+      id: build
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        push: true
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+        platforms: linux/amd64,linux/arm64
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+        
+    - name: Create reports directory
+      run: mkdir -p ci/reports
+      
+    - name: Generate build report
+      run: |
+        echo "## Build Report" > ci/reports/build-report.md
+        echo "- **Image**: ${{ steps.image.outputs.image }}" >> ci/reports/build-report.md
+        echo "- **Digest**: ${{ steps.build.outputs.digest }}" >> ci/reports/build-report.md
+        echo "- **Tags**: ${{ steps.meta.outputs.tags }}" >> ci/reports/build-report.md
+        echo "- **Platforms**: linux/amd64,linux/arm64" >> ci/reports/build-report.md
+        
+    - name: Upload build reports
+      uses: actions/upload-artifact@v4
+      with:
+        name: build-reports
+        path: ci/reports/
+
+  # Security Scan Stage
+  scan:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.inputs.stage == 'scan' || github.event.inputs.stage == 'all' || github.event.inputs.stage == '' }}
+    needs: build
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Run Trivy vulnerability scanner
+      uses: aquasecurity/trivy-action@master
+      with:
+        image-ref: '${{ needs.build.outputs.image }}@${{ needs.build.outputs.digest }}'
+        format: 'sarif'
+        output: 'trivy-results.sarif'
+        
+    - name: Upload Trivy scan results to GitHub Security tab
+      uses: github/codeql-action/upload-sarif@v3
+      if: always()
+      with:
+        sarif_file: 'trivy-results.sarif'
+        
+    - name: Create reports directory
+      run: mkdir -p ci/reports
+      
+    - name: Run Trivy scan for reports
+      uses: aquasecurity/trivy-action@master
+      with:
+        image-ref: '${{ needs.build.outputs.image }}@${{ needs.build.outputs.digest }}'
+        format: 'json'
+        output: 'ci/reports/trivy-report.json'
+        
+    - name: Upload scan reports
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: scan-reports
+        path: ci/reports/
+
+  # Deploy Test
+  deploy-test:
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && (github.event.inputs.stage == 'all' || github.event.inputs.stage == '')
+    needs: [lint, test, build, scan]
+    environment: 
+      name: testing
+      url: https://github.com/${{ github.repository }}/pkgs/container/cursor
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Test container deployment
+      run: |
+        echo "Testing deployment of ${{ needs.build.outputs.image }}@${{ needs.build.outputs.digest }}"
+        docker run --rm ${{ needs.build.outputs.image }}@${{ needs.build.outputs.digest }} python3 -c "print('Deployment test successful!')"
+        
+    - name: Create deployment report
+      run: |
+        mkdir -p ci/reports
+        echo "## Deployment Test Report" > ci/reports/deployment-report.md
+        echo "- **Status**: ✅ Successful" >> ci/reports/deployment-report.md
+        echo "- **Image**: ${{ needs.build.outputs.image }}" >> ci/reports/deployment-report.md
+        echo "- **Digest**: ${{ needs.build.outputs.digest }}" >> ci/reports/deployment-report.md
+        echo "- **Environment**: Testing" >> ci/reports/deployment-report.md
+        echo "- **Timestamp**: $(date -u +%Y-%m-%dT%H:%M:%SZ)" >> ci/reports/deployment-report.md
+        
+    - name: Upload deployment reports
+      uses: actions/upload-artifact@v4
+      with:
+        name: deployment-reports
+        path: ci/reports/
+
+  # Pipeline Summary
+  summary:
+    runs-on: ubuntu-latest
+    if: always()
+    needs: [lint, test, build, scan, deploy-test]
+    steps:
+    - name: Download all artifacts
+      uses: actions/download-artifact@v4
+      with:
+        path: artifacts
+        
+    - name: Generate pipeline summary
+      run: |
+        echo "# CI/CD Pipeline Summary" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "## Stage Results" >> $GITHUB_STEP_SUMMARY
+        echo "- **Lint**: ${{ needs.lint.result }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Test**: ${{ needs.test.result }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Build**: ${{ needs.build.result }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Scan**: ${{ needs.scan.result }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Deploy Test**: ${{ needs.deploy-test.result }}" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "## Artifacts Generated" >> $GITHUB_STEP_SUMMARY
+        find artifacts -type f -name "*.xml" -o -name "*.json" -o -name "*.html" -o -name "*.md" | wc -l | xargs echo "- Total artifact files:"
+        echo "" >> $GITHUB_STEP_SUMMARY
+        if [ "${{ needs.build.result }}" == "success" ]; then
+          echo "## 🚀 Container Image Published" >> $GITHUB_STEP_SUMMARY
+          echo "- **Registry**: ghcr.io" >> $GITHUB_STEP_SUMMARY
+          echo "- **Repository**: ${{ github.repository }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Digest**: ${{ needs.build.outputs.digest }}" >> $GITHUB_STEP_SUMMARY
+        fi
