@@ -1,0 +1,235 @@
+groups:
+  - name: financial_platform_alerts
+    rules:
+      # High error rate alerts
+      - alert: HighErrorRate
+        expr: rate(http_requests_total{status=~"5.."}[5m]) > 0.1
+        for: 2m
+        labels:
+          severity: high
+          service: financial-api
+        annotations:
+          summary: "High error rate detected"
+          description: "Error rate is {{ $value }} errors per second for the last 5 minutes"
+
+      # API response time alerts
+      - alert: HighResponseTime
+        expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m])) > 2
+        for: 2m
+        labels:
+          severity: medium
+          service: financial-api
+        annotations:
+          summary: "High response time detected"
+          description: "95th percentile response time is {{ $value }} seconds"
+
+      # Database connection alerts
+      - alert: DatabaseConnectionFailure
+        expr: pg_up == 0
+        for: 1m
+        labels:
+          severity: critical
+          service: database
+        annotations:
+          summary: "Database connection failed"
+          description: "PostgreSQL database is not responding"
+
+      # High database load
+      - alert: HighDatabaseLoad
+        expr: rate(pg_stat_activity_count[5m]) > 100
+        for: 2m
+        labels:
+          severity: medium
+          service: database
+        annotations:
+          summary: "High database load detected"
+          description: "Database has {{ $value }} active connections"
+
+      # Redis connection alerts
+      - alert: RedisConnectionFailure
+        expr: redis_up == 0
+        for: 1m
+        labels:
+          severity: high
+          service: redis
+        annotations:
+          summary: "Redis connection failed"
+          description: "Redis is not responding"
+
+      # High memory usage
+      - alert: HighMemoryUsage
+        expr: (node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes) / node_memory_MemTotal_bytes * 100 > 85
+        for: 5m
+        labels:
+          severity: medium
+          service: system
+        annotations:
+          summary: "High memory usage detected"
+          description: "Memory usage is {{ $value }}%"
+
+      # High CPU usage
+      - alert: HighCPUUsage
+        expr: 100 - (avg by(instance) (irate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 80
+        for: 5m
+        labels:
+          severity: medium
+          service: system
+        annotations:
+          summary: "High CPU usage detected"
+          description: "CPU usage is {{ $value }}%"
+
+      # Disk space alerts
+      - alert: HighDiskUsage
+        expr: (node_filesystem_size_bytes - node_filesystem_avail_bytes) / node_filesystem_size_bytes * 100 > 85
+        for: 5m
+        labels:
+          severity: medium
+          service: system
+        annotations:
+          summary: "High disk usage detected"
+          description: "Disk usage is {{ $value }}%"
+
+      # Service down alerts
+      - alert: APIServiceDown
+        expr: up{job="financial-api"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          service: financial-api
+        annotations:
+          summary: "API service is down"
+          description: "Financial Analytics Platform API is not responding"
+
+      - alert: UIServiceDown
+        expr: up{job="financial-ui"} == 0
+        for: 1m
+        labels:
+          severity: high
+          service: financial-ui
+        annotations:
+          summary: "UI service is down"
+          description: "Financial Analytics Platform UI is not responding"
+
+      # Prometheus alerts
+      - alert: PrometheusDown
+        expr: up{job="prometheus"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          service: monitoring
+        annotations:
+          summary: "Prometheus is down"
+          description: "Prometheus monitoring service is not responding"
+
+      - alert: AlertmanagerDown
+        expr: up{job="alertmanager"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          service: monitoring
+        annotations:
+          summary: "Alertmanager is down"
+          description: "Alertmanager service is not responding"
+
+      # Node exporter alerts
+      - alert: NodeExporterDown
+        expr: up{job="node-exporter"} == 0
+        for: 1m
+        labels:
+          severity: high
+          service: monitoring
+        annotations:
+          summary: "Node exporter is down"
+          description: "Node exporter is not responding"
+
+      # PostgreSQL exporter alerts
+      - alert: PostgresExporterDown
+        expr: up{job="postgres-exporter"} == 0
+        for: 1m
+        labels:
+          severity: high
+          service: monitoring
+        annotations:
+          summary: "PostgreSQL exporter is down"
+          description: "PostgreSQL exporter is not responding"
+
+  - name: financial_business_alerts
+    rules:
+      # Transaction processing alerts
+      - alert: HighTransactionVolume
+        expr: increase(transactions_processed_total[5m]) > 1000
+        for: 1m
+        labels:
+          severity: low
+          service: business
+        annotations:
+          summary: "High transaction volume detected"
+          description: "{{ $value }} transactions processed in the last 5 minutes"
+
+      # Failed transaction alerts
+      - alert: HighTransactionFailureRate
+        expr: rate(transactions_failed_total[5m]) / rate(transactions_total[5m]) > 0.05
+        for: 2m
+        labels:
+          severity: high
+          service: business
+        annotations:
+          summary: "High transaction failure rate detected"
+          description: "Transaction failure rate is {{ $value | humanizePercentage }}"
+
+      # Analytics job alerts
+      - alert: AnalyticsJobFailed
+        expr: analytics_job_status{status="failed"} > 0
+        for: 1m
+        labels:
+          severity: medium
+          service: analytics
+        annotations:
+          summary: "Analytics job failed"
+          description: "{{ $value }} analytics jobs have failed"
+
+      # Long running analytics jobs
+      - alert: LongRunningAnalyticsJob
+        expr: analytics_job_duration_seconds > 3600
+        for: 1m
+        labels:
+          severity: low
+          service: analytics
+        annotations:
+          summary: "Long running analytics job detected"
+          description: "Analytics job has been running for {{ $value }} seconds"
+
+  - name: security_alerts
+    rules:
+      # Authentication failure alerts
+      - alert: HighAuthFailureRate
+        expr: rate(auth_failures_total[5m]) > 10
+        for: 2m
+        labels:
+          severity: high
+          service: security
+        annotations:
+          summary: "High authentication failure rate detected"
+          description: "{{ $value }} authentication failures per second"
+
+      # Suspicious activity alerts
+      - alert: SuspiciousActivity
+        expr: rate(suspicious_requests_total[5m]) > 5
+        for: 1m
+        labels:
+          severity: medium
+          service: security
+        annotations:
+          summary: "Suspicious activity detected"
+          description: "{{ $value }} suspicious requests per second"
+
+      # Rate limiting alerts
+      - alert: RateLimitExceeded
+        expr: rate(rate_limit_exceeded_total[5m]) > 20
+        for: 2m
+        labels:
+          severity: medium
+          service: security
+        annotations:
+          summary: "Rate limit exceeded frequently"
+          description: "{{ $value }} rate limit violations per second"
